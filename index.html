@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>小怡专属菜馆 · 点菜</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; background: #fff8f0; color: #333; padding-bottom: 90px; }
+  header { background: #e4572e; color: #fff; padding: 20px 16px 16px; position: sticky; top: 0; z-index: 10; }
+  header h1 { font-size: 22px; }
+  header p { font-size: 13px; opacity: .9; margin-top: 4px; }
+  .cats { display: flex; gap: 8px; padding: 12px 16px; overflow-x: auto; background: #fff; position: sticky; top: 78px; z-index: 9; border-bottom: 1px solid #f0e0d0; }
+  .cats button { flex: none; border: 1px solid #e4572e; background: #fff; color: #e4572e; border-radius: 20px; padding: 7px 14px; font-size: 14px; cursor: pointer; }
+  .cats button.on { background: #e4572e; color: #fff; }
+  .list { padding: 8px 16px; }
+  .dish { display: flex; gap: 12px; background: #fff; border-radius: 12px; padding: 14px; margin-bottom: 10px; box-shadow: 0 1px 4px rgba(0,0,0,.06); align-items: center; }
+  .dish .emoji { font-size: 36px; width: 52px; text-align: center; flex: none; }
+  .dish .info { flex: 1; min-width: 0; }
+  .dish .name { font-size: 16px; font-weight: 600; }
+  .dish .desc { font-size: 12px; color: #888; margin-top: 3px; }
+  .dish .price { color: #e4572e; font-weight: 700; margin-top: 6px; }
+  .dish .ctrl { display: flex; align-items: center; gap: 8px; flex: none; }
+  .dish .ctrl button { width: 30px; height: 30px; border-radius: 50%; border: 1px solid #e4572e; background: #fff; color: #e4572e; font-size: 18px; line-height: 1; cursor: pointer; }
+  .dish .ctrl button.add { background: #e4572e; color: #fff; }
+  .dish .ctrl .n { min-width: 18px; text-align: center; font-weight: 600; }
+  .cartbar { position: fixed; left: 12px; right: 12px; bottom: 12px; background: #222; color: #fff; border-radius: 40px; padding: 12px 18px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 16px rgba(0,0,0,.25); z-index: 20; }
+  .cartbar .total { font-size: 17px; font-weight: 700; }
+  .cartbar .total small { font-size: 12px; font-weight: 400; opacity: .8; }
+  .cartbar button { background: #e4572e; color: #fff; border: none; border-radius: 24px; padding: 10px 18px; font-size: 15px; cursor: pointer; }
+  .cartbar button:disabled { background: #666; }
+  .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 30; align-items: flex-end; }
+  .modal.open { display: flex; }
+  .sheet { background: #fff; width: 100%; max-height: 80vh; overflow-y: auto; border-radius: 16px 16px 0 0; padding: 18px; }
+  .sheet h2 { font-size: 18px; margin-bottom: 12px; }
+  .sheet .row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #f0f0f0; font-size: 15px; }
+  .sheet .sum { display: flex; justify-content: space-between; font-size: 17px; font-weight: 700; padding: 12px 0; }
+  .sheet .actions { display: flex; gap: 10px; margin-top: 8px; }
+  .sheet .actions button { flex: 1; padding: 12px; border-radius: 10px; font-size: 16px; cursor: pointer; border: 1px solid #ddd; background: #fff; }
+  .sheet .actions button.primary { background: #e4572e; color: #fff; border-color: #e4572e; }
+  .done { text-align: center; padding: 20px 0 8px; font-size: 16px; }
+  .note { padding: 4px 16px 16px; font-size: 12px; color: #999; text-align: center; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🍜 小怡专属菜馆</h1>
+</header>
+
+
+
+<div style="display:flex; gap:12px; align-items:center; background:#fff; margin:12px 16px 0; padding:12px; border-radius:12px; box-shadow:0 1px 4px rgba(0,0,0,.06);">
+  <div style="font-size:48px; line-height:96px; width:72px; height:96px; text-align:center; background:#fff; border-radius:12px; border:2px solid #e4572e; flex:none;">🧑‍🍳</div>
+  <div>
+    <div style="font-weight:700; font-size:16px;">🧑‍🍳 小怡主厨上线啦</div>
+    <div style="font-size:13px; color:#888; margin-top:4px;">今天想吃点啥？全部只要 ¥0.52</div>
+  </div>
+</div>
+
+<div class="cats" id="cats"></div>
+<div class="list" id="list"></div>
+<p class="note">🧑‍🍳 小怡主厨今日推荐 · 全部只要 ¥0.52</p>
+
+<div class="cartbar">
+  <div class="total"><small>已选 <span id="count">0</span> 份 · 合计</small> ¥<span id="total">0</span></div>
+  <button id="checkout" disabled>去结算</button>
+</div>
+
+<div class="modal" id="modal">
+  <div class="sheet">
+    <h2>我的订单</h2>
+    <div id="orderRows"></div>
+    <div class="sum"><span>合计</span><span>¥<span id="orderTotal">0</span></span></div>
+    <div class="done" id="doneMsg" style="display:none">✅ 下单成功！这是演示版，没有真的付款。<br>小怡专属菜馆 · 欢迎光临。</div>
+    <div class="actions">
+      <button id="clearBtn">清空</button>
+      <button id="closeBtn">继续点菜</button>
+      <button class="primary" id="submitBtn">确认下单</button>
+    </div>
+  </div>
+</div>
+
+<script>
+var MENU = [
+  {cat:"招牌菜", emoji:"🍗", name:"招牌炸鸡", desc:"外酥里嫩，现点现炸", price:0.52},
+  {cat:"招牌菜", emoji:"🥩", name:"红烧牛肉", desc:"软烂入味，下饭神器", price:0.52},
+  {cat:"招牌菜", emoji:"🐟", name:"清蒸鲈鱼", desc:"新鲜鲈鱼，清淡鲜美", price:0.52},
+  {cat:"招牌菜", emoji:"🥬", name:"蒜蓉生菜", desc:"清爽解腻", price:0.52},
+  {cat:"主食", emoji:"🍜", name:"牛肉面", desc:"大块牛肉，汤浓面劲道", price:0.52},
+  {cat:"主食", emoji:"🍚", name:"扬州炒饭", desc:"蛋香虾仁，粒粒分明", price:0.52},
+  {cat:"主食", emoji:"🥟", name:"芋头馅饺子（12只）", desc:"手工包制，香甜软糯", price:0.52},
+  {cat:"主食", emoji:"🍝", name:"番茄意面", desc:"酸甜开胃", price:0.52},
+  {cat:"汤 / 饮品", emoji:"🍲", name:"番茄蛋花汤", desc:"家常暖胃", price:0.52},
+  {cat:"汤 / 饮品", emoji:"🧋", name:"珍珠奶茶", desc:"现做现调", price:0.52},
+  {cat:"汤 / 饮品", emoji:"🥤", name:"冰镇可乐", desc:"冰爽解渴", price:0.52},
+  {cat:"汤 / 饮品", emoji:"🧋", name:"奶茶", desc:"香浓顺滑", price:0.52}
+];
+var cart = {}; // index -> qty
+var curCat = "全部";
+function cats() {
+  var cs = ["全部"].concat(MENU.map(function(m){return m.cat}).filter(function(v,i,a){return a.indexOf(v)===i}));
+  document.getElementById("cats").innerHTML = cs.map(function(c){
+    return '<button class="'+(c===curCat?'on':'')+'" data-cat="'+c+'">'+c+'</button>';
+  }).join("");
+  document.querySelectorAll("#cats button").forEach(function(b){
+    b.onclick = function(){ curCat = b.dataset.cat; render(); };
+  });
+}
+function render() {
+  cats();
+  var html = "";
+  MENU.forEach(function(m, i){
+    if (curCat !== "全部" && m.cat !== curCat) return;
+    var n = cart[i] || 0;
+    html += '<div class="dish"><div class="emoji">'+m.emoji+'</div>'
+      + '<div class="info"><div class="name">'+m.name+'</div><div class="desc">'+m.desc+'</div><div class="price">¥'+m.price+'</div></div>'
+      + '<div class="ctrl">'
+      + (n>0 ? '<button onclick="chg('+i+',-1)">−</button><span class="n">'+n+'</span>' : '')
+      + '<button class="add" onclick="chg('+i+',1)">＋</button></div></div>';
+  });
+  document.getElementById("list").innerHTML = html;
+  var count = 0, total = 0;
+  Object.keys(cart).forEach(function(i){ count += cart[i]; total += cart[i]*MENU[i].price; });
+  document.getElementById("count").textContent = count;
+  document.getElementById("total").textContent = total.toFixed(2);
+  document.getElementById("checkout").disabled = count === 0;
+}
+function chg(i, d) {
+  cart[i] = (cart[i]||0) + d;
+  if (cart[i] <= 0) delete cart[i];
+  render();
+}
+document.getElementById("checkout").onclick = function(){
+  var rows = "", total = 0;
+  Object.keys(cart).forEach(function(i){
+    var m = MENU[i], sub = cart[i]*m.price; total += sub;
+    rows += '<div class="row"><span>'+m.name+' × '+cart[i]+'</span><span>¥'+sub+'</span></div>';
+  });
+  document.getElementById("orderRows").innerHTML = rows || '<div class="row">还没选菜</div>';
+  document.getElementById("orderTotal").textContent = total.toFixed(2);
+  document.getElementById("doneMsg").style.display = "none";
+  document.getElementById("modal").classList.add("open");
+};
+document.getElementById("closeBtn").onclick = function(){ document.getElementById("modal").classList.remove("open"); };
+document.getElementById("modal").onclick = function(e){ if (e.target === this) this.classList.remove("open"); };
+document.getElementById("clearBtn").onclick = function(){ cart = {}; render(); document.getElementById("modal").classList.remove("open"); };
+document.getElementById("submitBtn").onclick = function(){
+  document.getElementById("doneMsg").style.display = "block";
+  cart = {}; render();
+};
+render();
+</script>
+
+<div style="text-align:center; font-size:12px; color:#999; padding:16px; line-height:1.8;">
+  小怡专属菜馆 · 欢迎光临 💖
+</div>
+</body>
+</html>
